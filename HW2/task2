@@ -1,0 +1,3 @@
+curl -v http://10.9.0.80/cgi-bin/getenv.cgi
+
+curl -A "My Agent" http://10.9.0.80/cgi-bin/getenv.cgi

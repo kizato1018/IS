@@ -1,0 +1,10 @@
+Local Variable Address: 0xffab3cb4
+Local Static Initialized Variable Address: 0x804c034
+Local Static Uninitialized Variable Address: 0x804c038
+Global Initialized Variable Address: 0x804c028
+Global Static Uninitialized Variable Address: 0x804c02c
+Memory Allocation Address: 0x82141a0
+Function Address: 0x80491d6
+Argument in function Address: 0xffab3ca0
+Local Variable in function Address: 0xffab3c88
+Local Static Variable in function Address: 0x804c030

