@@ -22,6 +22,7 @@ $hashed_pwd = sha1($input_pwd);
 $conn = getDB();
 
 // do the query
+/*
 $result = $conn->query("SELECT id, name, eid, salary, ssn
                         FROM credential
                         WHERE name= '$input_uname' and Password= '$hashed_pwd'");
@@ -34,7 +35,15 @@ if ($result->num_rows > 0) {
   $salary = $firstrow["salary"];
   $ssn    = $firstrow["ssn"];
 }
+*/
 
+$result = $conn->prepare("SELECT id, name, eid, salary, ssn
+                        FROM credential
+                        WHERE name= ? and Password= ?");// Bind parameters to the query
+$result->bind_param("ss", $input_uname, $hashed_pwd);
+$result->execute();
+$result->bind_result($id, $name, $eid, $salary, $ssn);
+$result->fetch();
 // close the sql connection
 $conn->close();
 ?>

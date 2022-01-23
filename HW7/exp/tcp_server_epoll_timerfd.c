@@ -1,0 +1,220 @@
+#include <stdio.h>          // for printf() and fprintf() 
+#include <sys/socket.h>     // for socket(), bind(), and connect() 
+#include <arpa/inet.h>      // for sockaddr_in and inet_ntoa() 
+#include <stdlib.h>         // for atoi() and exit() 
+#include <string.h>         // for memset() 
+#include <unistd.h>         // for close() 
+#include <sys/time.h>       // for struct timeval {} 
+#include <fcntl.h>          // for fcntl() 
+#include <sys/types.h>
+#include <unistd.h>
+
+#include <sys/epoll.h>
+#include <sys/timerfd.h>
+#include <stdint.h>
+
+#define MAXPENDING 5        // Maximum outstanding connection requests
+#define MAXCLIENT  100	    // Maximum users
+#define RCVBUFSIZE 1000	    // Buffer Size
+
+int CreateTCPServerSocket(unsigned short port)
+{
+    int sock;                        // socket to create 
+    struct sockaddr_in echoServerAddr; // Local address 
+
+    // Create socket for incoming connections 
+    if ( ( sock = socket( PF_INET, SOCK_STREAM, IPPROTO_TCP ) ) < 0 )
+    {
+        perror( "socket() failed" );
+        exit(1);
+    }
+      
+    // Construct local address structure 
+    memset( &echoServerAddr, 0, sizeof( echoServerAddr ) );	// Zero out structure 
+    echoServerAddr.sin_family = AF_INET;                      	// Internet address family 
+    echoServerAddr.sin_addr.s_addr = inet_addr( "0.0.0.0" );   // Any incoming interface 
+	// echoServerAddr.sin_addr.s_addr = htonl( INADDR_ANY );
+                                                                // # define INADDR_ANY ((unsigned long int) 0x00000000)
+    echoServerAddr.sin_port = htons( port );                  	// Local port 
+
+    // Bind to the local address 
+    if ( bind(sock, (struct sockaddr *) &echoServerAddr, sizeof( echoServerAddr ) ) < 0 )
+    {
+        perror( "bind() failed" );
+        exit(1);
+    }
+    
+    // Mark the socket so it will listen for incoming connections 
+    if ( listen( sock, MAXPENDING ) < 0 )
+    {
+        perror( "listen() failed" );
+        exit(1);
+    }
+    
+    return sock;
+}
+
+int AcceptTCPClient( int serverSock, struct sockaddr_in *echoClientAddr )
+{
+	int clientSock;        				// Socket descriptor for client
+    unsigned int        clientLen;     	// Length of client address data structure 
+    
+    // Wait for a client to connect 
+    if ( ( clientSock = accept( serverSock, (struct sockaddr *) echoClientAddr, &clientLen ) ) < 0 )
+    {
+        perror("accept() failed");
+        exit(1);
+    }
+
+    return clientSock;
+}
+
+int HandleTCPClient( int socket )
+{
+    char    echoBuffer[RCVBUFSIZE] = {0};  // Buffer for echo string 
+    int     recvMsgSize;                   // Size of received message 
+    
+    // Receive message from client 
+    if ( ( recvMsgSize = recv( socket, echoBuffer, RCVBUFSIZE, 0 ) ) < 0 )
+    {
+        perror("recv() failed");
+        exit(1);
+    }
+
+    // Send received string and receive again until end of transmission 
+    if ( recvMsgSize > 0 )      // zero indicates end of transmission 
+    {
+        printf( "From FD (%d) recv %d bytes:\n\tData:", socket, recvMsgSize );
+        
+        for( int i = 0 ; i < recvMsgSize ; i++ )
+        {
+            printf( "%02X ", echoBuffer[i] );
+        }
+        printf( "\n" );
+        
+        // Echo message back to client 
+        if ( send( socket, echoBuffer, recvMsgSize, 0) != recvMsgSize )
+        {
+            perror( "send() failed" );
+            exit(1);
+        }
+    }
+    
+    return recvMsgSize;
+}
+
+
+int main( int argc, char *argv[] )
+{
+    int	serverSock;	// Socket descriptor for server 
+    
+    if ( argc != 2 )     
+    {
+        fprintf( stderr, "Usage:  %s port\n", argv[0]);
+        exit(1);
+    }
+    
+    serverSock = CreateTCPServerSocket( atoi( argv[1] ) );
+    
+    int                     epfd;                   // EPOLL File Descriptor. 
+    struct epoll_event      ev;                     // Used for EPOLL.
+    struct epoll_event      events[MAXCLIENT + 2];  // Used for EPOLL.
+    int                     noEvents;               // EPOLL event number.
+    
+    epfd = epoll_create1( 0 );		
+    
+    // Add the server socket to the epoll
+    ev.data.fd = serverSock;
+    ev.events = EPOLLIN;
+    epoll_ctl( epfd, EPOLL_CTL_ADD, serverSock, &ev );
+    
+    // Add STDIN into the EPOLL set.
+    ev.data.fd = STDIN_FILENO;
+    ev.events = EPOLLIN;
+    epoll_ctl( epfd, EPOLL_CTL_ADD, STDIN_FILENO, &ev );     
+    
+    // Add TimerFD
+    int timerfd = timerfd_create( CLOCK_MONOTONIC, 0 );
+    if( timerfd == -1 )
+    {
+        // Error
+        perror( "timerfd_create" );
+        return -1;
+    }
+    
+    struct itimerspec new_value;
+    
+    new_value.it_value.tv_sec = 5;
+    new_value.it_value.tv_nsec = 0;
+    new_value.it_interval.tv_sec = 5;
+    new_value.it_interval.tv_nsec = 0;
+    
+    // 0 means relative timer.
+    if ( timerfd_settime( timerfd, 0, &new_value, NULL ) == -1 )
+    {
+        // Error
+        perror( "timerfd_settime" ); 
+        return -1;  
+    }
+    
+    // Add TimerFD into the EPOLL set.
+    ev.data.fd = timerfd;
+    ev.events = EPOLLIN;
+    epoll_ctl( epfd, EPOLL_CTL_ADD, timerfd, &ev );     
+    
+    int running = 1;    
+    while( running )
+    {
+        noEvents = epoll_wait( epfd, events, MAXCLIENT + 2 , -1 );
+        
+        if ( noEvents <= 0 ) 
+        {
+            printf("No echo requests for 5 secs...Server still alive\n" );
+            continue; 
+        }
+        
+        for( int i = 0 ; i < noEvents ; i++ )
+        {
+            if( events[i].events & EPOLLIN && STDIN_FILENO == events[i].data.fd )
+            {
+                printf("Shutting down server\n");
+                getchar();
+                running = 0;
+                continue;
+            }
+            if( events[i].events & EPOLLIN && timerfd == events[i].data.fd )
+            {
+                printf("Timer Expiration\n");
+                uint64_t timerValue = 0;
+                read( timerfd, &timerValue, 8 );
+                continue;
+            }
+            else if ( events[i].events & EPOLLIN && serverSock == events[i].data.fd )
+            {
+                // Accept new connections
+                int clientSock; 			// Socket descriptor for client
+                struct sockaddr_in echoClientAddr; 	// client address
+                unsigned int        clientLen;     	// Length of client address data structure 
+    
+                clientSock = AcceptTCPClient( serverSock, &echoClientAddr );
+                printf("Connected Client --> IP: %s, Port: %d, FD: %d\n", inet_ntoa( echoClientAddr.sin_addr ), htons( echoClientAddr.sin_port ), clientSock );
+                
+                ev.data.fd = clientSock;
+                ev.events = EPOLLIN;
+                epoll_ctl( epfd, EPOLL_CTL_ADD, clientSock, &ev ); 
+            }
+            else if ( events[i].events & EPOLLIN )
+            {
+                if( HandleTCPClient( events[i].data.fd ) == 0 )
+                {
+                    printf( "Connection %d Shudown.\n", events[i].data.fd );
+                    close( events[i].data.fd );
+                }
+            }
+        }
+    }
+    
+    close( serverSock );
+    
+    return 0;
+}
